@@ -127,7 +127,7 @@ def get_strategy():
             learning_rate       = LR,
             current_parameters  = current_parameters
         )
-    elif algo in ['fedhcw', 'fedimp']:
+    elif ALGO in ['fedhcw', 'fedimp']:
         return algo(
             exp_name            = EXP_NAME, 
             net                 = net_, 
