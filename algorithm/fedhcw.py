@@ -19,7 +19,7 @@ class FedHCW(FedAvg):
 
     
     def __repr__(self): 
-        return 'FedAdpImp'
+        return 'FedHCW'
     
     
     def aggregate_cluster(self, cluster_id, cluster_clients: List[FitRes]):

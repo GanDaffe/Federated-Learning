@@ -8,7 +8,8 @@ from models.resnet import ResNet34, ResNet50
 class MoonTypeModel(nn.Module): 
     
     def __init__(self, dataset_name):
-
+        
+        super().__init__()
         self.lstm = False
         if dataset_name == 'fmnist':
             self.features = MLP_header() 
@@ -36,8 +37,8 @@ class MoonTypeModel(nn.Module):
         h = h.view(h.size(0), -1)
 
         y = self.l3(h) 
-        if self.base_model == 'lstm': 
-            y = F.sigmoid(y)
+        if self.lstm:
+            y = torch.sigmoid(y)
         return h, h, y
     
 def get_moon_model(dataset_name: str): 

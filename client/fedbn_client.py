@@ -37,7 +37,7 @@ class FedBNClient(BaseClient):
             self.set_parameters(parameters)
 
         optimizer = torch.optim.SGD(self.net.parameters(), lr=config["learning_rate"])
-        loss, acc = train(self.net, self.trainloader, self.criterion, optimizer, device=config["device"], num_epochs=self.local_train_epcs)
+        loss, acc = train(self.net, self.trainloader, self.criterion, optimizer, device=self.device, num_epochs=self.local_train_epcs)
             
         return self.get_parameters(config), len(self.trainloader.sampler), {
             "loss": loss,

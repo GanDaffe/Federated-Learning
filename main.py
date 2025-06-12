@@ -134,9 +134,9 @@ def get_strategy():
             num_rounds          = NUM_ROUNDS, 
             num_clients         = NUM_CLIENTS, 
             testloader          = testloader, 
-            entropies           = entropies,
             learning_rate       = LR,
-            current_parameters  = current_parameters
+            current_parameters  = current_parameters,
+            entropies           = entropies
 
         )
 
