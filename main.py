@@ -1,7 +1,6 @@
 import flwr as fl
 import torch
 from torch.utils.data import DataLoader, SubsetRandomSampler
-from run import run_simulation
 from torch import nn
 from flwr.common import ndarrays_to_parameters, parameters_to_ndarrays, Context
 
