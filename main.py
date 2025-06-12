@@ -90,7 +90,7 @@ def client_fn(context: Context):
     elif ALGO == 'fedbn':
         return FedBNClient(cid, net, LOCAL_TRAINING, trainloaders[cid], criterion, DEVICE).to_client()
     elif ALGO == 'moon':
-        client_ = MoonClient(cid, net, LOCAL_TRAINING, trainloaders[cid], criterion, DEVICE, dir='/moon_save_point/').to_client()
+        return MoonClient(cid, net, LOCAL_TRAINING, trainloaders[cid], criterion, DEVICE, dir='/moon_save_point/').to_client()
 
     
 # ---------------------------- STRATEGY ----------------------------------------
