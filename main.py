@@ -86,7 +86,7 @@ def client_fn(context: Context):
     if ALGO in ['fedadp', 'fedavg', 'fedimp', 'fedprox']:
         return BaseClient(cid, net, LOCAL_TRAINING, trainloaders[cid], criterion, DEVICE).to_client()
     elif ALGO in ['fedhcw']:
-        return ClusterFedClient(cid, net, LOCAL_TRAINING, trainloaders[cid], criterion, DEVICE, cluster_id=client_cluster_index[cid])
+        return ClusterFedClient(cid, net, LOCAL_TRAINING, trainloaders[cid], criterion, DEVICE, cluster_id=client_cluster_index[cid]).to_client()
     elif ALGO == 'fedbn':
         return FedBNClient(cid, net, LOCAL_TRAINING, trainloaders[cid], criterion, DEVICE).to_client()
     elif ALGO == 'moon':
