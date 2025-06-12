@@ -54,10 +54,8 @@ class FedAvg(fl.server.strategy.Strategy):
         clients = client_manager.sample(num_clients=sample_size, min_num_clients=min_num_clients)
 
         config = {"learning_rate": self.learning_rate}         
-        fit_ins = FitIns(parameters, config)
 
-        fit_configs = [(client, fit_ins) for client in clients]
-        return fit_configs
+        return [(client, FitIns(parameters, config)) for client in clients]
 
 
     def aggregate_fit(
