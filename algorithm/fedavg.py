@@ -52,9 +52,8 @@ class FedAvg(fl.server.strategy.Strategy):
         """Configure the next round of training."""
         sample_size, min_num_clients = self.num_fit_clients(client_manager.num_available())
         clients = client_manager.sample(num_clients=sample_size, min_num_clients=min_num_clients)
-
         config = {"learning_rate": self.learning_rate}         
-
+    
         return [(client, FitIns(parameters, config)) for client in clients]
 
 
@@ -117,7 +116,7 @@ class FedAvg(fl.server.strategy.Strategy):
         test_net = copy.deepcopy(self.net)  
         set_parameters(test_net, parameters_to_ndarrays(parameters))    
         
-        loss, accuracy = test(test_net, self.testloader, self.device)
+        loss, accuracy = test(test_net, self.testloader)
 
         if server_round != 0:  
             self.result["test_loss"].append(loss)

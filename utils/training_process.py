@@ -77,8 +77,8 @@ def train(net, trainloader, criterion, optimizer, device, num_epochs: int = 1, p
     return running_loss, accuracy
 
 
-def test(net, testloader, device):
-    net.to(device)
+def test(net, testloader):
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     net.eval()
     criterion = nn.CrossEntropyLoss()
     corrects, total_loss, tot = 0, 0.0, 0
