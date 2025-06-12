@@ -45,7 +45,7 @@ class MoonClient(BaseClient):
                             self.trainloader,
                             learning_rate,
                             temperature,
-                            device=config['device'],
+                            device=self.device,
                             epochs=self.local_train_epcs
                      )
 

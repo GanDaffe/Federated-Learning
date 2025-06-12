@@ -16,7 +16,7 @@ class MOON(FedAvg):
         sample_size, min_num_clients = self.num_fit_clients(client_manager.num_available())
         clients = client_manager.sample(num_clients=sample_size, min_num_clients=min_num_clients)
 
-        config = {"learning_rate": self.learning_rate, "temperature": self.temperature, "device": self.device}
+        config = {"learning_rate": self.learning_rate, "temperature": self.temperature}
 
         fit_ins = FitIns(parameters, config)
 
