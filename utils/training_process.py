@@ -33,14 +33,28 @@ def set_parameters(net, parameters: List[np.ndarray]):
     state_dict = OrderedDict({k: torch.from_numpy(v) for k, v in params_dict})
     net.load_state_dict(state_dict)
 
-def train(net, trainloader, criterion, optimizer, device, num_epochs: int = 1, proximal_mu: float = None):
+def train(
+    net,
+    trainloader,
+    criterion,
+    optimizer,
+    device,
+    num_epochs: int = 1,
+    get_grad_norm = False, 
+    proximal_mu: float = None):
+
     net.to(device)
     net.train()
     loss_, acc = 0.0, 0
 
-    global_params = copy.deepcopy(net).parameters()
+    if proximal_mu is not None:
+        global_params = copy.deepcopy(net).parameters()
 
-    for _ in range(num_epochs): 
+    if get_grad_norm: 
+        full_grad = [torch.zeros_like(p) for p in net.parameters() if p.requires_grad]
+        total_grad_samples = 0
+
+    for e in range(num_epochs): 
         running_loss, running_corrects, tot = 0.0, 0, 0
 
         for images, labels in trainloader:
@@ -57,6 +71,14 @@ def train(net, trainloader, criterion, optimizer, device, num_epochs: int = 1, p
                 loss += (proximal_mu / 2) * proximal_term
 
             loss.backward()
+
+            if get_grad_norm and e == 0: 
+                with torch.no_grad(): 
+                    for i, p in enumerate(net.parameters()):
+                        if p.grad is not None:
+                            full_grad[i] += p.grad.detach() * images.size(0) 
+                total_grad_samples += images.size(0)
+
             optimizer.step()
 
             preds = torch.argmax(outputs, dim=1)
@@ -73,6 +95,12 @@ def train(net, trainloader, criterion, optimizer, device, num_epochs: int = 1, p
     
     loss_ /= num_epochs
     acc /= num_epochs
+
+    if get_grad_norm:
+        full_grad_ = [full_grad[i] / total_grad_samples for i in range(len(full_grad))]
+        norm_grad = sum(g.norm()**2 for g in full_grad_).item()
+
+        return loss_, acc, norm_grad
 
     return running_loss, accuracy
 
