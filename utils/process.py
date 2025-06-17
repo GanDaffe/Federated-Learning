@@ -19,6 +19,7 @@ from utils.distance import hellinger, jensen_shannon_divergence_distance
 from datasets import load_dataset 
 import re
 
+# ------------------------------ Preprocess ----------------------------------------
 def clean_text(tweet):
     urlPattern = r"((http://)[^ ]*|(https://)[^ ]*|(www\.)[^ ]*)"
     userPattern = '@[^\s]+'
@@ -68,6 +69,7 @@ def get_transform(dataset_name):
     else:
         return None
 
+# ------------------------------------------- Load dataset --------------------------------------
 def load_data(dataset: str): 
     datasets = {
         'cifar10': (CIFAR10, 'image'),
@@ -120,44 +122,6 @@ def load_sentimen140():
     testset = CustomDataset(test_data, test_labels)
 
     return trainset, testset
-
-def renormalize(dist: torch.tensor, labels: List[int], label: int):
-    idx = labels.index(label)
-    dist[idx] = 0
-    dist /= sum(dist)
-    dist = torch.concat((dist[:idx], dist[idx+1:]))
-    return dist
-
-def build_distribution(dist, noise_level=0.05):
-    distrib_ = [
-        np.array(list(d.values())) / sum(d.values()) if sum(d.values()) > 0 else np.zeros(len(d))
-        for d in dist
-    ]
-    distrib_ = np.array(distrib_)
-    noise = np.random.lognormal(mean=0.0, sigma=noise_level, size=distrib_.shape)
-    distrib_ += noise
-    distrib_ = distrib_ / distrib_.sum(axis=1, keepdims=True)
-    return distrib_
-
-def get_optics_instance(distance, min_smp, xi):
-    """Return an OPTICS i nstance based on the specified distance metric."""
-    if distance == 'hellinger':
-        return OPTICS(min_samples=min_smp, xi=xi, metric=hellinger, min_cluster_size=5)
-    elif distance == 'jensenshannon':
-        return OPTICS(min_samples=min_smp, xi=xi, metric=jensen_shannon_divergence_distance, min_cluster_size=5)
-    else:
-        return OPTICS(min_samples=min_smp, xi=xi, metric=distance, min_cluster_size=5)
-
-def clustering(dist, min_smp=3, xi=0.2, distance='manhattan', noise_level=0.05):
-    distrib_ = build_distribution(dist, noise_level=noise_level)
-
-    optics = get_optics_instance(distance, min_smp, xi)
-    optics.fit(distrib_)
-    
-    labels = optics.labels_
-    client_cluster_index = {i: int(lab) for i, lab in enumerate(labels)}
-
-    return client_cluster_index, distrib_
 
 def partition_data(dataset,
                    num_clients,
@@ -286,6 +250,7 @@ def get_train_data(dataset_name,
     
     return ids, labels_dist, trainloaders, testloader, client_dataset_ratio
 
+# ------------------------------------------ Support function --------------------------------------- 
 def set_seed(seed_value):
     random.seed(seed_value)
     np.random.seed(seed_value)
@@ -293,3 +258,48 @@ def set_seed(seed_value):
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed_value)
     print(f"Seeds set to {seed_value}")
+
+def normalize_distribution(distribution):
+    total = sum(distribution.values())
+    return [count / total for count in distribution.values()]
+
+def compute_uniform_distribution(num_classes):
+    return [1 / num_classes] * num_classes
+
+
+def renormalize(dist: torch.tensor, labels: List[int], label: int):
+    idx = labels.index(label)
+    dist[idx] = 0
+    dist /= sum(dist)
+    dist = torch.concat((dist[:idx], dist[idx+1:]))
+    return dist
+
+def build_distribution(dist, noise_level=0.05):
+    distrib_ = [
+        np.array(list(d.values())) / sum(d.values()) if sum(d.values()) > 0 else np.zeros(len(d))
+        for d in dist
+    ]
+    distrib_ = np.array(distrib_)
+    noise = np.random.lognormal(mean=0.0, sigma=noise_level, size=distrib_.shape)
+    distrib_ += noise
+    distrib_ = distrib_ / distrib_.sum(axis=1, keepdims=True)
+    return distrib_
+
+def get_optics_instance(distance, min_smp, xi):
+    if distance == 'hellinger':
+        return OPTICS(min_samples=min_smp, xi=xi, metric=hellinger, min_cluster_size=5)
+    elif distance == 'jensenshannon':
+        return OPTICS(min_samples=min_smp, xi=xi, metric=jensen_shannon_divergence_distance, min_cluster_size=5)
+    else:
+        return OPTICS(min_samples=min_smp, xi=xi, metric=distance, min_cluster_size=5)
+
+def clustering(dist, min_smp=3, xi=0.2, distance='manhattan', noise_level=0.05):
+    distrib_ = build_distribution(dist, noise_level=noise_level)
+
+    optics = get_optics_instance(distance, min_smp, xi)
+    optics.fit(distrib_)
+    
+    labels = optics.labels_
+    client_cluster_index = {i: int(lab) for i, lab in enumerate(labels)}
+
+    return client_cluster_index, distrib_
