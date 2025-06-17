@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader, SubsetRandomSampler
 from torch import nn
 from flwr.common import ndarrays_to_parameters, parameters_to_ndarrays, Context
 
-from utils import get_model, get_train_data, clustering, set_seed, compute_entropy, get_parameters
+from utils import get_model, get_train_data, clustering, set_seed, compute_entropy, get_parameters, normalize_distribution, compute_uniform_distribution, kl_divergence
 from client import * 
 from algorithm import *
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -73,6 +73,15 @@ if ALGO in ['fedhcw']:
     for i in range(NUM_CLIENTS):
         print(f"Client {i+1}: {dist[i]}")
 
+if ALGO == 'feddisco': 
+    dk = {}
+    num_classes = len(dist[0])  
+    uniform_dist = compute_uniform_distribution(num_classes)
+
+    for client_id in range(NUM_CLIENTS):
+        client_distribution = normalize_distribution(dist[client_id])
+        dk[client_id] = kl_divergence(client_distribution, uniform_dist)
+        
 entropies = [compute_entropy(dist[i]) for i in range(NUM_CLIENTS)]
     
 # ---------------------------- CLIENT_FN -------------------------------------
@@ -83,7 +92,7 @@ def client_fn(context: Context):
 
     net = get_model(dataset_name=DATASET_NAME, moon_type=is_moon_type) 
     criterion = nn.CrossEntropyLoss()
-    if ALGO in ['fedadp', 'fedavg', 'fedimp', 'fedprox']:
+    if ALGO in ['fedadp', 'fedavg', 'fedimp', 'fedprox', 'feddisco']:
         return BaseClient(cid, net, LOCAL_TRAINING, trainloaders[cid], criterion, DEVICE).to_client()
     elif ALGO in ['fedhcw']:
         return ClusterFedClient(cid, net, LOCAL_TRAINING, trainloaders[cid], criterion, DEVICE, cluster_id=client_cluster_index[cid]).to_client()
@@ -117,6 +126,8 @@ def get_algorithm():
         return FedImp
     elif ALGO == 'fedaaw':
         return FedAAW
+    elif ALGO == 'feddisco': 
+        return FedDisco
     
 def get_strategy(): 
     algo = get_algorithm() 
@@ -141,6 +152,17 @@ def get_strategy():
             current_parameters  = current_parameters,
             entropies           = entropies
 
+        )
+    elif ALGO == 'feddisco':
+        return algo(
+            exp_name            = EXP_NAME,
+            net                 = net_,
+            num_rounds          = NUM_ROUNDS,
+            num_clients         = NUM_CLIENTS,
+            testloader          = testloader,
+            learning_rate       = LR,
+            current_parameters  = current_parameters,
+            dk                  = dk,
         )
 
 # ---------------------------- RUN SIMULATION -------------------------------------

@@ -6,3 +6,4 @@ from algorithm.moon import MOON
 from algorithm.fedhcw import FedHCW
 from algorithm.fedbn import FedBN
 from algorithm.fedaaw import FedAAW
+from algorithm.feddisco import FedDisco

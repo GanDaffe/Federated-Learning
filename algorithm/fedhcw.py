@@ -14,7 +14,7 @@ class FedHCW(FedAvg):
 
         self.entropies = entropies
         self.temperature = temperature 
-        self.alpha = alpha 
+        self.alpha = alpha  
         self.current_angles = {}
 
     
