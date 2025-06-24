@@ -43,13 +43,12 @@ def clean_text(tweet):
     tweet = re.sub("\s\s+", " ", tweet)
     return tweet.strip()
 
-def preprocess_text(root):
-
-    keep = ['text', 'sentiment']
+def preprocess_text_agnews(root):
+    keep = ['text', 'label']
     data = {key: root[key] for key in keep}
 
-    data['text'] = [clean_text(tweet) for tweet in data['text']]
-    data['sentiment'] = [1 if sentiment == 4 else 0 for sentiment in data['sentiment']] 
+    data['text'] = [clean_text(text) for text in data['text']]
+    data['label'] = [int(label) for label in data['label']]  # AG News label từ 0–3 (đã ok)
 
     return data
 
@@ -76,12 +75,12 @@ def load_data(dataset: str):
         'emnist': (EMNIST, 'image'),
         'fmnist': (FashionMNIST, 'image'),
         'cifar100': (CIFAR100, 'image'),
-        'sentimen140': ('text', 'text')  
+        'agnews': ('text', 'text')  
     }
 
     if dataset in datasets:
-        if dataset == 'sentimen140':
-            return load_sentimen140()
+        if dataset == 'agnews':
+            return load_agnews()
 
         dataset_class, datatype = datasets[dataset]
         transform = get_transform(dataset)
@@ -95,14 +94,12 @@ def load_data(dataset: str):
 
         return trainset, testset
 
-def load_sentimen140():
-    from huggingface_hub import login
-    token = 'ep1'
-    login(token=token)
-    
-    dataset = load_dataset("sentiment140")['train']
 
-    root_data = preprocess_text(dataset)
+def load_agnews():
+    from datasets import load_dataset
+    dataset = load_dataset("ag_news")['train']
+
+    root_data = preprocess_text_agnews(dataset)
 
     max_words = 2000
     max_len = 500
@@ -110,10 +107,10 @@ def load_sentimen140():
     tokenizer.fit_on_texts(root_data['text'])
 
     seq = tokenizer.texts_to_sequences(root_data['text'])
-    
+
     padded_dataset = torch.from_numpy(pad_sequences(seq, maxlen=max_len, padding='post', truncating='post'))
-    labels = root_data['sentiment']
-    
+    labels = root_data['label']
+
     train_data, test_data, train_labels, test_labels = train_test_split(
         padded_dataset, labels, test_size=0.2, random_state=42, stratify=labels
     )
@@ -218,7 +215,7 @@ def get_train_data(dataset_name,
 
     for i in range(num_folds):
         sub_set = partition_fold[i]
-        if dataset_name in ['cifar10', 'cifar100','sentimen140']:
+        if dataset_name in ['cifar10', 'cifar100','agnews']:
             data = [trainset.data[idx] for idx in sub_set.indices]
             targets = [trainset.targets[idx] for idx in sub_set.indices]
         else:
