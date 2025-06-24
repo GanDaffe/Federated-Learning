@@ -12,19 +12,19 @@ print(f"Training on {DEVICE} using PyTorch {torch.__version__} and Flower {fl.__
 
 def get_num_clients(dataset_name): 
     if dataset_name == 'fmnist':
-        return 60
+        return 120
     elif dataset_name == 'cifar10':
-        return 30
+        return 80
     elif dataset_name == 'cifar100': 
-        return 24
+        return 80
 
 def get_num_rounds(dataset_name):
     if dataset_name == 'fmnist':
-        return 150
+        return 100
     elif dataset_name == 'cifar10':
-        return 600
+        return 300
     elif dataset_name == 'cifar100': 
-        return 800
+        return 500
 # -------------------------------- HYPER PARAMETERS -------------------------------------
 
 RANDOM_SEED = 42
