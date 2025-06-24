@@ -5,7 +5,7 @@ from torch import nn
 from flwr.common import ndarrays_to_parameters, parameters_to_ndarrays, Context
 
 from utils import get_model, get_train_data, clustering, set_seed, compute_entropy, get_parameters, normalize_distribution, compute_uniform_distribution, kl_divergence
-from client import * 
+from client import *     
 from algorithm import *
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(f"Training on {DEVICE} using PyTorch {torch.__version__} and Flower {fl.__version__}")
@@ -177,5 +177,6 @@ fl.simulation.start_simulation(
             num_clients         = NUM_CLIENTS,
             config              = fl.server.ServerConfig(num_rounds=NUM_ROUNDS),
             strategy            = get_strategy(),
+            client_manager      = SimpleClientManager(),
             client_resources     = client_resources
         )
