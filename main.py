@@ -11,15 +11,13 @@ DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(f"Training on {DEVICE} using PyTorch {torch.__version__} and Flower {fl.__version__}")
 
 def get_num_clients(dataset_name): 
-    if dataset_name == 'fmnist':
+    if dataset_name in ['fmnist', 'agnews']:
         return 120
-    elif dataset_name == 'cifar10':
+    elif dataset_name in ['cifar10', 'cifar100']:
         return 80
-    elif dataset_name == 'cifar100': 
-        return 80
-
+    
 def get_num_rounds(dataset_name):
-    if dataset_name == 'fmnist':
+    if dataset_name in ['fmnist', 'agnews']:
         return 100
     elif dataset_name == 'cifar10':
         return 300
