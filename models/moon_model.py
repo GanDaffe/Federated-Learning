@@ -40,7 +40,9 @@ class MoonTypeModel(nn.Module):
             n_classes = 10
         elif dataset_name == 'cifar100': 
             n_classes = 100
-
+        elif dataset_name == 'agnews': 
+            n_classes = 4
+            
         self.l3 = nn.Linear(num_ftrs, n_classes) 
 
     def forward(self, x): 
