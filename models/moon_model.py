@@ -21,7 +21,7 @@ class MoonTypeModel(nn.Module):
 
         elif dataset_name == 'agnews': 
             embed_num = 2000
-            embed_dim = 128
+            embed_dim = 32
             kernel_sizes = [3, 4, 5]
             kernel_num = 32
             dropout = 0.5
