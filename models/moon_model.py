@@ -25,10 +25,11 @@ class MoonTypeModel(nn.Module):
             kernel_sizes = [3, 4, 5]
             kernel_num = 32
             dropout = 0.5
-
+            class_num = 4
             self.features = CNN_Text_Header(
                 embed_num=embed_num,
                 embed_dim=embed_dim,
+                class_num=class_num,
                 kernel_sizes=kernel_sizes,
                 kernel_num=kernel_num,
                 dropout=dropout
