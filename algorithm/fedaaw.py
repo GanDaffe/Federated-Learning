@@ -20,14 +20,16 @@ class FedAAW(FedAvg):
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
         """Aggregate fit results using weighted average."""
 
-        if server_round <= 1: 
-            for _, fit_res in results: 
-                self.R_t[fit_res.metrics['id']] = fit_res.metrics['f_norm'] 
-        else: 
-            for _, fit_res in results: 
-                prev_round_R = self.R_t[fit_res.metrics['id']] 
-                self.R_t[fit_res.metrics['id']] = (prev_round_R * (server_round - 1) + fit_res.metrics['f_norm']) / server_round
-        
+        for _, fit_res in results:
+            cid = fit_res.metrics['id']
+            f_norm = fit_res.metrics['f_norm']
+
+            if server_round <= 1 or cid not in self.R_t:
+                self.R_t[cid] = f_norm
+            else:
+                prev_round_R = self.R_t[cid]
+                self.R_t[cid] = (prev_round_R * (server_round - 1) + f_norm) / server_round
+                
         examples = [fit_res.num_examples for _, fit_res in results]
         all_samples = sum(examples)
         q, p, q_sum = {}, {}, 0.0
