@@ -96,27 +96,32 @@ def load_data(dataset: str):
 
 
 def load_agnews():
-    from datasets import load_dataset
-    dataset = load_dataset("ag_news")['train']
+    dataset = load_dataset("ag_news")
+
+    train_raw = dataset['train']
+    test_raw = dataset['test']
+
+    train_data = preprocess_text_agnews(train_raw)
+    test_data = preprocess_text_agnews(test_raw)
 
     root_data = preprocess_text_agnews(dataset)
 
     max_words = 2000
     max_len = 500
     tokenizer = Tokenizer(num_words=max_words)
-    tokenizer.fit_on_texts(root_data['text'])
+    tokenizer.fit_on_texts(train_data['text'])
+    
+    train_seq = tokenizer.texts_to_sequences(train_data['text'])
+    test_seq = tokenizer.texts_to_sequences(test_data['text'])
+    
+    train_pad = torch.tensor(pad_sequences(train_seq, maxlen=max_len, padding='post', truncating='post'), dtype=torch.long)
+    test_pad = torch.tensor(pad_sequences(test_seq, maxlen=max_len, padding='post', truncating='post'), dtype=torch.long)
 
-    seq = tokenizer.texts_to_sequences(root_data['text'])
+    train_labels = torch.tensor(train_data['label'], dtype=torch.long)
+    test_labels = torch.tensor(test_data['label'], dtype=torch.long)
 
-    padded_dataset = torch.from_numpy(pad_sequences(seq, maxlen=max_len, padding='post', truncating='post'))
-    labels = root_data['label']
-
-    train_data, test_data, train_labels, test_labels = train_test_split(
-        padded_dataset, labels, test_size=0.2, random_state=42, stratify=labels
-    )
-
-    trainset = CustomDataset(train_data, train_labels)
-    testset = CustomDataset(test_data, test_labels)
+    trainset = CustomDataset(train_pad, train_labels)
+    testset = CustomDataset(test_pad, test_labels)
 
     return trainset, testset
 
