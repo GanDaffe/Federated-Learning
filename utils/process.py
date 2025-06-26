@@ -198,25 +198,36 @@ def get_train_data(dataset_name,
                    num_clients,
                    batch_size, 
                    alphas: list = [0.5, 0.7, 0.9, 1],
-                   special_case = False):
+                   fractions: list = [0.25, 0.25, 0.25, 0.25],
+                   special_case=False):
 
-    num_folds = len(alphas)
+    assert abs(sum(fractions) - 1.0) < 1e-6, "Tổng các phần tử trong 'fractions' phải bằng 1"
+    assert len(alphas) == len(fractions), "'alphas' và 'fractions' phải có cùng độ dài"
+
     trainset, testset = load_data(dataset_name)
-
-    base = len(trainset) // num_folds
-    extra = len(trainset) % num_folds
     classes = trainset.classes
 
-    fold_len = [base + 1 if i < extra else base for i in range(num_folds)]
-    partition_fold = random_split(trainset, fold_len)
+    clients_per_fold = [int(frac * num_clients) for frac in fractions]
+    
+    while sum(clients_per_fold) < num_clients:
+        for i in range(len(clients_per_fold)):
+            clients_per_fold[i] += 1
+            if sum(clients_per_fold) == num_clients:
+                break
 
-    base_clients = num_clients // num_folds
-    extra_clients = num_clients % num_folds
-    clients_per_fold = [base_clients + 1 if i < extra_clients else base_clients for i in range(num_folds)]
+    total_data = len(trainset)
+    data_per_fold = [int((num / num_clients) * total_data) for num in clients_per_fold]
+    while sum(data_per_fold) < total_data:
+        for i in range(len(data_per_fold)):
+            data_per_fold[i] += 1
+            if sum(data_per_fold) == total_data:
+                break
+
+    partition_fold = random_split(trainset, data_per_fold)
 
     ids, labels_dist = [], []
 
-    for i in range(num_folds):
+    for i in range(len(alphas)):
         sub_set = partition_fold[i]
         if dataset_name in ['cifar10', 'cifar100','agnews']:
             data = [trainset.data[idx] for idx in sub_set.indices]

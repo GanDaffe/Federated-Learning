@@ -28,7 +28,8 @@ def get_num_rounds(dataset_name):
 RANDOM_SEED = 42
 ALGO = 'fedhcw'
 BATCH_SIZE = 32
-ALPHA = [0.1, 0.2, 0.3]
+PARTITION_FRACTION = [0.3, 0.3, 0.3, 0.1]
+ALPHA = [0.01, 0.05, 0.1, 100]
 LR = 0.01
 LOCAL_TRAINING = 10
 DATASET_NAME = 'fmnist' 
@@ -45,6 +46,7 @@ ids, dist, trainloaders, testloader, client_dataset_ratio = get_train_data(
     dataset_name=DATASET_NAME,
     num_clients=NUM_CLIENTS,
     batch_size=BATCH_SIZE, 
+    fractions=PARTITION_FRACTION,
     alphas=ALPHA
 )
 
