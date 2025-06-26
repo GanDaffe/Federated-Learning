@@ -33,4 +33,4 @@ def hellinger(p, q):
 
     sosq = sum(list_of_squares)    
 
-    return sosq / math.sqrt(2)
+    return math.sqrt(sosq) / math.sqrt(2)
