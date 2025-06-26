@@ -48,7 +48,7 @@ def preprocess_text_agnews(root):
     data = {key: root[key] for key in keep}
 
     data['text'] = [clean_text(text) for text in data['text']]
-    data['label'] = [int(label) for label in data['label']]  # AG News label từ 0–3 (đã ok)
+    data['label'] = [int(label) for label in data['label']] 
 
     return data
 
@@ -104,8 +104,6 @@ def load_agnews():
     train_data = preprocess_text_agnews(train_raw)
     test_data = preprocess_text_agnews(test_raw)
 
-    root_data = preprocess_text_agnews(dataset)
-
     max_words = 2000
     max_len = 500
     tokenizer = Tokenizer(num_words=max_words)
@@ -113,7 +111,7 @@ def load_agnews():
     
     train_seq = tokenizer.texts_to_sequences(train_data['text'])
     test_seq = tokenizer.texts_to_sequences(test_data['text'])
-    
+
     train_pad = torch.tensor(pad_sequences(train_seq, maxlen=max_len, padding='post', truncating='post'), dtype=torch.long)
     test_pad = torch.tensor(pad_sequences(test_seq, maxlen=max_len, padding='post', truncating='post'), dtype=torch.long)
 
