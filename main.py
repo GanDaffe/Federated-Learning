@@ -101,7 +101,7 @@ def client_fn(context: Context):
     elif ALGO == 'fedaaw':
         return FedAAW_Client(cid, net, LOCAL_TRAINING, trainloaders[cid], criterion, DEVICE).to_client()
     elif ALGO == 'feddc':
-        return FedDC_client(cid, net, LOCAL_TRAINING, trainloaders[cid], criterion, DEVICE, prev_model_save_dir='prev_model').to_client()
+        return FedDC_client(cid, net, LOCAL_TRAINING, trainloaders[cid], criterion, DEVICE).to_client()
     
 # ---------------------------- STRATEGY ----------------------------------------
 

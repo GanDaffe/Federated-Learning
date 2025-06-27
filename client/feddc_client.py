@@ -3,73 +3,58 @@ from global_import import *
 
 class FedDC_client(BaseClient):
 
-    def __init__(self, *args, prev_model_save_dir, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.prev_model_save_dir = os.path.join(prev_model_save_dir, str(self.cid))
+        self.shapes = [p.numel() for p in self.net.parameters()]
+        self.n_par = sum(self.shapes)
 
-        if not os.path.exists(self.prev_model_save_dir):
-            os.makedirs(self.prev_model_save_dir)
+        self.state_grad_diff = np.zeros(self.n_par, dtype=np.float64)
+        self.params_drift = np.zeros(self.n_par, dtype=np.float64)
 
-    def fit(self, parameters: List[np.ndarray], config: Dict) -> Tuple[List[np.ndarray], int, Dict]:
-        set_parameters(self.net, parameters)
-
-        global_model_param = torch.cat([
-            torch.tensor(p, device=self.device, dtype=torch.float32).flatten()
-            for p in parameters
+    def _get_flat(self) -> np.ndarray:
+        return np.concatenate([
+            p.data.cpu().numpy().reshape(-1) for p in self.net.parameters()
         ])
 
-        param_size = global_model_param.numel()
-        path_local_update = os.path.join(self.prev_model_save_dir, 'local_update_last.pt')
-        path_h_i = os.path.join(self.prev_model_save_dir, 'h_i.pt')
+    def fit(self, parameters: List[np.ndarray], config: Dict):
+        set_parameters(self.net, parameters)
+        param_vec = self._get_flat()  # 1D numpy array size = self.n_par
 
-        # local_update_last = g_i^{(t-1)}
-        # h_i 
-        if config['server_round'] <= 1:
-            local_update_last = torch.zeros(param_size, device=self.device, dtype=torch.float32)
-            h_i = torch.zeros(param_size, device=self.device, dtype=torch.float32)
-        else:
-            local_update_last = load_(path_local_update, device=self.device, shape=param_size)
-            h_i = load_(path_h_i, device=self.device, shape=param_size)
-        
-        # g
-        buf = config['g']
-        g_np = np.frombuffer(buf, dtype=np.float64)
-        global_update_last = torch.tensor(g_np, device=self.device, dtype=torch.float32)
+        global_update_last = np.frombuffer(config['global_update_last'], dtype=np.float64).copy()
+        alpha = config['alpha']
+        lr = config['learning_rate']
+        num_epochs = self.local_train_epcs
 
-        loss, accuracy, theta_i_current = train_feddc(
+        loss, acc, theta_i_current = train_feddc(
             net=self.net,
-            local_update_last=local_update_last,
-            global_update_last=global_update_last,
-            global_model_param=global_model_param,
-            h_i=h_i,
-            lr=config['learning_rate'],
+            local_update_last=torch.from_numpy(self.state_grad_diff).to(self.device),
+            global_update_last=torch.from_numpy(global_update_last).to(self.device),
+            global_model_param=torch.tensor(param_vec, device=self.device),
+            h_i=torch.tensor(self.params_drift, device=self.device),
+            lr=lr,
             trainloader=self.trainloader,
             criterion=self.criterion,
             device=self.device,
-            alpha=config['alpha'],
-            num_epochs=self.local_train_epcs
+            alpha=alpha,
+            num_epochs=num_epochs
         )
 
-        # g_i^{(t)} = theta_i_current - theta^{(t-1)}
-        new_local_update = theta_i_current - global_model_param
+        theta_vec = theta_i_current.cpu().numpy()
 
-        # h_i^{(t)} = h_i^{(t-1)} + (theta_i^{(t)} - theta^{(t-1)})
-        new_h_i = h_i + (theta_i_current - global_model_param)
+        new_local_update = theta_vec - param_vec   
+        
+        # h_i
+        self.params_drift += new_local_update
 
-        save_(path_local_update, new_local_update)
-        save_(path_h_i, new_h_i)
+        # g_i
+        self.state_grad_diff = self.state_grad_diff - global_update_last + (-new_local_update)
 
-        model_param = get_parameters(self.net)
-        num_examples = len(self.trainloader.sampler)
-        drift_np64 = new_h_i.detach().cpu().numpy().astype(np.float64)
-        local_update_np64 = new_local_update.detach().cpu().numpy().astype(np.float64)
-
-        return model_param, len(self.trainloader.sampler), {
-            "drift": drift_np64.tobytes(),
-            "local_update": local_update_np64.tobytes(),
-            "loss": float(loss),
-            "accuracy": float(accuracy),
-            "id": self.cid
+        updated_params = get_parameters(self.net)
+        return updated_params, len(self.trainloader.dataset), {
+            'drift':   self.params_drift.astype(np.float64).tobytes(),
+            'delta_g': new_local_update.astype(np.float64).tobytes(),    
+            'loss':    float(loss),
+            'accuracy': float(acc),
         }
 
 def train_feddc(
@@ -131,17 +116,3 @@ def train_feddc(
     theta_i_current = torch.cat([param.flatten() for param in net.parameters()]).detach()
 
     return total_loss, total_acc, theta_i_current
-
-def save_(file_path: str, data):
-    directory = os.path.dirname(file_path)
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    torch.save(data, file_path)
-
-def load_(file_path: str, device, shape):
-    if os.path.exists(file_path):
-        t = torch.load(file_path, map_location=device)
-        t = t.to(device)
-        return t
-    else:
-        return torch.zeros(shape, device=device)
