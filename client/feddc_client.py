@@ -47,7 +47,7 @@ class FedDC_client(BaseClient):
         self.params_drift += new_local_update
 
         # g_i
-        self.state_grad_diff = self.state_grad_diff - global_update_last + (-new_local_update)
+        self.state_grad_diff = self.state_grad_diff - global_update_last + new_local_update
 
         updated_params = get_parameters(self.net)
         return updated_params, len(self.trainloader.dataset), {
@@ -92,11 +92,11 @@ def train_feddc(
 
             # loss_r: (alpha/2) * ||theta_i - theta^{(t)} + h_i||^2
             r_coef = alpha / 2
-            loss_r = r_coef * torch.sum((h_i + local_parameter - global_model_param) ** 2)
+            loss_r = r_coef * torch.sum((local_parameter - (global_model_param - h_i)) ** 2)
 
-            # loss_g: (1/(eta * num_batches)) * <theta_i, g_i^{(t-1)} - g^{(t-1)}>
-            g_coef = 1 / (lr * len(trainloader))
-            loss_g = g_coef * torch.sum(update_diff * local_parameter)
+            # loss_g: (1/(eta * num_batches * num_epoch)) * <theta_i, g_i^{(t-1)} - g^{(t-1)}>
+            g_coef = 1 / (lr * len(trainloader) * num_epochs)
+            loss_g = g_coef * torch.sum(local_parameter * update_diff)
 
             # Tổng loss
             loss = loss_f + loss_r + loss_g
