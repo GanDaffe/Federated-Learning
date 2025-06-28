@@ -31,23 +31,13 @@ class FedDC(FedAvg):
         results: List[Tuple[ClientProxy, FitRes]],
         failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]]) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
 
-        drifts = []
-        delta_gs = []
+        delta_gs = [np.frombuffer(fit_res.metrics['delta_g'], dtype=np.float64) for _, fit_res in results if 'delta_g' in fit_res.metrics]
         total_examples = sum(fit_res.num_examples for _, fit_res in results)
-        weights_results = [(parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples) for _, fit_res in results]
-
-        for client, fit_res in results:
-           
-            drifts.append(
-                np.frombuffer(fit_res.metrics['drift'], dtype=np.float64))
-            delta_gs.append(
-                np.frombuffer(fit_res.metrics['delta_g'], dtype=np.float64))
+        weights_results = [(parameters_to_ndarrays(fit_res.parameters) + np.frombuffer(fit_res.metrics['drift'], dtype=np.float64), fit_res.num_examples) for _, fit_res in results]
 
         aggregated = aggregate(weights_results)
-        avg_drifts = np.sum(drifts, axis=0) / len(drifts)
-        tuned_aggregated = aggregated + avg_drifts
     
-        self.current_parameters = ndarrays_to_parameters(tuned_aggregated)
+        self.current_parameters = ndarrays_to_parameters(aggregated)
         delta_g_mean = np.sum(delta_gs, axis=0) / len(delta_gs)
         self.state_grad_diff = delta_g_mean.copy()
 
