@@ -103,7 +103,7 @@ def client_fn(context: Context):
     elif ALGO == 'feddc':
         return FedDC_client(cid, net, LOCAL_TRAINING, trainloaders[cid], criterion, DEVICE).to_client()
     elif ALGO == 'fedntd':
-        return FedNTD_Client(cid, net, LOCAL_TRAINING, trainloaders[cid], DEVICE, criterion=None).to_client()
+        return FedNTD_Client(cid, net, LOCAL_TRAINING, trainloaders[cid], None, DEVICE).to_client()
 # ---------------------------- STRATEGY ----------------------------------------
 
 is_moon_type = True if ALGO == 'moon' else False 
