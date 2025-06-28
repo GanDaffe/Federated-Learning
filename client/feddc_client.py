@@ -72,7 +72,7 @@ def train_feddc(
 ) -> Tuple[float, float]:
 
     # update_diff: g_i^{(t-1)} - g^{(t-1)}
-    update_diff = local_update_last - global_update_last
+    update_diff = -local_update_last + global_update_last
 
     net.to(device)
     net.train()
