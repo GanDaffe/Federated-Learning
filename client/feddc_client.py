@@ -43,11 +43,11 @@ class FedDC_client(BaseClient):
 
         new_local_update = theta_vec - param_vec   
         
-        # h_i
+        # h_i is parameters drift
         self.params_drift += new_local_update
 
-        # g_i
-        self.state_grad_diff = self.state_grad_diff - global_update_last + new_local_update
+        # g_i is the local update value of i-th client’s local parameters in last round
+        self.state_grad_diff = new_local_update
 
         updated_params = get_parameters(self.net)
         return updated_params, len(self.trainloader.dataset), {
