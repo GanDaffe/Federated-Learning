@@ -33,8 +33,22 @@ class FedDC(FedAvg):
 
         delta_gs = [np.frombuffer(fit_res.metrics['delta_g'], dtype=np.float64) for _, fit_res in results if 'delta_g' in fit_res.metrics]
         total_examples = sum(fit_res.num_examples for _, fit_res in results)
-        weights_results = [(parameters_to_ndarrays(fit_res.parameters) + np.frombuffer(fit_res.metrics['drift'], dtype=np.float64), fit_res.num_examples) for _, fit_res in results]
 
+        weights_results = []
+        for _, fit_res in results:
+            weights = parameters_to_ndarrays(fit_res.parameters)
+            drift = np.frombuffer(fit_res.metrics['drift'], dtype=np.float64)
+
+            shapes = [w.shape for w in weights]
+            sizes = [w.size for w in weights]
+
+            splits = np.split(drift, np.cumsum(sizes)[:-1])
+            drift_reshaped = [d.reshape(shape) for d, shape in zip(splits, shapes)]
+
+            updated_weights = [w + d for w, d in zip(weights, drift_reshaped)]
+
+            weights_results.append((updated_weights, fit_res.num_examples))
+            
         aggregated = aggregate(weights_results)
     
         self.current_parameters = ndarrays_to_parameters(aggregated)
