@@ -102,7 +102,8 @@ def client_fn(context: Context):
         return FedAAW_Client(cid, net, LOCAL_TRAINING, trainloaders[cid], criterion, DEVICE).to_client()
     elif ALGO == 'feddc':
         return FedDC_client(cid, net, LOCAL_TRAINING, trainloaders[cid], criterion, DEVICE).to_client()
-    
+    elif ALGO == 'fedntd':
+        return FedNTD_Client(cid, net, LOCAL_TRAINING, trainloaders[cid], DEVICE, criterion=None).to_client()
 # ---------------------------- STRATEGY ----------------------------------------
 
 is_moon_type = True if ALGO == 'moon' else False 
@@ -130,10 +131,12 @@ def get_algorithm():
         return FedDisco
     elif ALGO == 'feddc':
         return FedDC
+    elif ALGO == 'fedntd':
+        return FedNTD
     
 def get_strategy(): 
     algo = get_algorithm() 
-    if ALGO in ['fedavg', 'feddc', 'fedprox', 'fedadp', 'fedbn', 'moon', 'fedaaw']:
+    if ALGO in ['fedavg', 'feddc', 'fedprox', 'fedadp', 'fedbn', 'moon', 'fedaaw', 'fedntd']:
         return algo(
             exp_name            = EXP_NAME,
             net                 = net_,
