@@ -9,6 +9,7 @@ class FedAvg(fl.server.strategy.Strategy):
             num_rounds: int,
             num_clients: int,
             testloader, 
+            decay_rate = 0.995,
             fraction_fit: float = 0.5,
             fraction_evaluate: float = 0.0,
             min_fit_clients: int = 2,
@@ -31,6 +32,7 @@ class FedAvg(fl.server.strategy.Strategy):
         self.learning_rate = learning_rate
         self.current_parameters = current_parameters
         self.testloader = testloader
+        self.decay_rate = decay_rate
 
         self.result = {"round": [], "train_loss": [], "train_accuracy": [], "test_loss": [], "test_accuracy": []}
 
@@ -52,7 +54,9 @@ class FedAvg(fl.server.strategy.Strategy):
         """Configure the next round of training."""
         sample_size, min_num_clients = self.num_fit_clients(client_manager.num_available())
         clients = client_manager.sample(num_clients=sample_size, min_num_clients=min_num_clients)
+        
         config = {"learning_rate": self.learning_rate}         
+        self.learning_rate = self.learning_rate * self.decay_rate 
     
         return [(client, FitIns(parameters, config)) for client in clients]
 

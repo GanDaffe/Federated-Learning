@@ -37,7 +37,7 @@ class FedHCW(FedAvg):
         total_examples = sum(fit_res.num_examples for fit_res in cluster_clients)
 
         representative_metrics = dict(cluster_clients[0].metrics)
-        representative_metrics["id"] = cluster_id
+        representative_metrics["cluster_id"] = cluster_id
         representative_metrics["loss"] = loss
         representative_metrics["accuracy"] = accuracy
 
@@ -67,22 +67,21 @@ class FedHCW(FedAvg):
             cluster_data[cluster_id].append(fit_res)
 
         cluster_results = {}
+        weights_results = []
+        num_examples = []
+        ids = []
+        cluster_results = {}
 
-        for cluster_id, _ in cluster_data.items():
-            if len(cluster_data[cluster_id]) > 1:
-                cluster_results[cluster_id] = self.aggregate_cluster(cluster_id, cluster_data[cluster_id])
+        for cluster_id, fit_res_list in cluster_data.items():
+            if len(fit_res_list) > 1:
+                fit_res = self.aggregate_cluster(cluster_id, fit_res_list)
+            else:
+                fit_res = fit_res_list[0]
 
-        weights_results = [parameters_to_ndarrays(fit_res.parameters) for _, fit_res in cluster_results.items()]
-
-        num_examples = [fit_res.num_examples for _, fit_res in cluster_results.items()]
-        ids = [int(fit_res.metrics["id"]) for _, fit_res in cluster_results.items()]
-
-        for _, v in cluster_data.items():
-            if len(v) == 1:
-                fit_res = v[0]
-                weights_results.append(parameters_to_ndarrays(fit_res.parameters))
-                num_examples.append(fit_res.num_examples)
-                ids.append(int(fit_res.metrics["cluster_id"]))
+            cluster_results[cluster_id] = fit_res
+            weights_results.append(parameters_to_ndarrays(fit_res.parameters))
+            num_examples.append(fit_res.num_examples)
+            ids.append(int(fit_res.metrics['cluster_id']))
 
         local_updates = np.array(weights_results, dtype=object) - np.array(parameters_to_ndarrays(self.current_parameters), dtype=object)
 
@@ -97,16 +96,18 @@ class FedHCW(FedAvg):
 
         instant_angles = np.arccos([np.dot(local_grad_vector, global_grad_vector) / (np.linalg.norm(local_grad_vector) * np.linalg.norm(global_grad_vector))
                           for local_grad_vector in local_grad_vectors])
-
-        if server_round == 1:
-            smoothed_angles = instant_angles
-        else:
-            pre_angles = [self.current_angles[i] for i in ids]
-            smoothed_angles = [(server_round-1)/server_round * x + 1/server_round * y if x is not None else y
-                               for x, y in zip(pre_angles, instant_angles)]
-
-        for id, i in zip(ids, range(len(ids))):
-            self.current_angles[id] = smoothed_angles[i]
+            
+        id_to_instant_angle = dict(zip(ids, instant_angles))
+        smoothed_angles = []
+        for cluster_id in ids:
+            prev_angle = self.current_angles.get(cluster_id, None)
+            curr_angle = id_to_instant_angle[cluster_id]
+            if prev_angle is None:
+                smoothed = curr_angle
+            else:
+                smoothed = (server_round - 1) / server_round * prev_angle + 1 / server_round * curr_angle
+            smoothed_angles.append(smoothed)
+            self.current_angles[cluster_id] = smoothed
 
         maps = self.alpha*(1-np.exp(-np.exp(-self.alpha*(np.array(smoothed_angles)-1))))
 

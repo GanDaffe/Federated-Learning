@@ -11,5 +11,7 @@ class FedBN(FedAvg):
         sample_size, min_num_clients = self.num_fit_clients(client_manager.num_available())
         clients = client_manager.sample(sample_size, min_num_clients)
         config = {"learning_rate": self.learning_rate, "round": server_round}
+        self.learning_rate = self.learning_rate * self.decay_rate 
+
         return [(client, FitIns(parameters, config)) for client in clients]
     

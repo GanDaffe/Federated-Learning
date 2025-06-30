@@ -23,6 +23,8 @@ class FedDC(FedAvg):
             'alpha': self.alpha,
             'learning_rate': self.learning_rate,
         }
+        self.learning_rate = self.learning_rate * self.decay_rate 
+
         return [(client, FitIns(parameters, config)) for client in clients]
 
     def aggregate_fit(
