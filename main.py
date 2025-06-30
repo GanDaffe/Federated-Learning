@@ -53,7 +53,8 @@ ids, dist, trainloaders, testloader, client_dataset_ratio = get_train_data(
 if ALGO in ['fedhcw']:
     client_cluster_index, distrib_ = clustering(
         dist, 
-        algo='kmeans'
+        algo='agglomerative',
+        num_clusters=10,
     )
 
     num_cluster = len(list(set(client_cluster_index.values()))) - 1

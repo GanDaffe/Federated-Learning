@@ -18,6 +18,8 @@ from torch.utils.data import DataLoader, random_split, SubsetRandomSampler
 from utils.distance import hellinger, jensen_shannon_divergence_distance
 from datasets import load_dataset 
 import re
+from sklearn.cluster import AgglomerativeClustering
+from sklearn.metrics import pairwise_distances
 
 # ------------------------------ Preprocess ----------------------------------------
 def clean_text(tweet):
@@ -312,7 +314,22 @@ def clustering(dist, min_smp=2, xi=0.15, algo='kmeans', distance='manhattan', no
         optics.fit(distrib_)
         labels = optics.labels_
     elif algo == 'kmeans': 
-        labels, centroid = kmeans(X=distrib_, num_clusters=num_clusters, distance_func=hellinger, verbose=False) 
+        if distance == 'hellinger':
+            labels, centroid = kmeans(X=distrib_, num_clusters=num_clusters, distance_func=hellinger, verbose=False) 
+        elif distance == 'jensenshannon':
+            labels, centroid = kmeans(X=distrib_, num_clusters=num_clusters, distance_func=jensen_shannon_divergence_distance, verbose=False)
+    elif algo == 'agglomerative':
+        if distance == 'hellinger':
+            dists = pairwise_distances(distrib_, metric=hellinger)
+            model = AgglomerativeClustering(n_clusters=num_clusters, affinity='precomputed', linkage='average')
+            labels = model.fit_predict(dists)
+        elif distance == 'jensenshannon':
+            dists = pairwise_distances(distrib_, metric=jensen_shannon_divergence_distance)
+            model = AgglomerativeClustering(n_clusters=num_clusters, affinity='precomputed', linkage='average')
+            labels = model.fit_predict(dists)
+        else:
+            model = AgglomerativeClustering(n_clusters=num_clusters, affinity=distance, linkage='average')
+            labels = model.fit_predict(distrib_)
 
     client_cluster_index = {i: int(lab) for i, lab in enumerate(labels)}
 
