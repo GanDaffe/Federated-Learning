@@ -55,6 +55,7 @@ if ALGO in ['fedhcw']:
         dist, 
         algo='agglomerative',
         num_clusters=10,
+        distance=DISTANCE,
     )
 
     num_cluster = len(list(set(client_cluster_index.values()))) - 1

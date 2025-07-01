@@ -1,31 +1,36 @@
 import torch
 import torch.nn as nn
 
+
 class LSTM_Header(nn.Module):
-    def __init__(self):
+    def __init__(self, vocab_size=2000):
         super(LSTM_Header, self).__init__()
-        self.embedding = nn.Embedding(num_embeddings=2000, embedding_dim=50)
-        self.lstm = nn.LSTM(input_size=50, hidden_size=64, batch_first=True)
-        self.fc1 = nn.Linear(64, 256)
-        self.relu = nn.ReLU()
+        self.embedding = nn.Embedding(num_embeddings=vocab_size, embedding_dim=8)
+        self.lstm = nn.LSTM(
+            input_size=8,
+            hidden_size=256,
+            num_layers=2,
+            batch_first=True
+        )
         self.dropout = nn.Dropout(p=0.5)
 
     def forward(self, x):
-        x = self.embedding(x)  # (batch_size, seq_len, 50)
-        _, (hn, _) = self.lstm(x)  # hn: (1, batch_size, 64)
-        x = hn.squeeze(0)  # (batch_size, 64)
-        x = self.fc1(x)    # (batch_size, 256)
-        x = self.relu(x)
+        # x: (batch_size, seq_len) -> (batch_size, seq_len, 8)
+        x = self.embedding(x)
+        # output: (batch_size, seq_len, 256)
+        _, (hn, _) = self.lstm(x)
+        x = hn[-1]  # shape: (batch_size, 256)
         x = self.dropout(x)
         return x
 
 class LSTM(nn.Module):
-    def __init__(self):
+    def __init__(self, vocab_size, num_classes):
         super(LSTM, self).__init__()
-        self.encode = LSTM_Header()
-        self.classification = nn.Linear(256, 4)
+        self.encode = LSTM_Header(vocab_size)
+        self.classifier = nn.Linear(256, num_classes)
 
     def forward(self, x):
-        x = self.encode(x)
-        x = self.classification(x)
+        x = self.encode(x)  # (batch_size, 256)
+        x = self.classifier(x)  # (batch_size, num_classes)
         return x
+

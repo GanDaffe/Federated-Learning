@@ -98,7 +98,7 @@ def train_moon(
     temperature,
     device="cpu",
     epochs=1,
-    mu=0.005,
+    mu=1,
 ):
     """Training function for MOON."""
     net.to(device)
