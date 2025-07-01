@@ -24,7 +24,7 @@ class LSTM_Header(nn.Module):
         return x
 
 class LSTM(nn.Module):
-    def __init__(self, vocab_size, num_classes):
+    def __init__(self, vocab_size=2000, num_classes=4):
         super(LSTM, self).__init__()
         self.encode = LSTM_Header(vocab_size)
         self.classifier = nn.Linear(256, num_classes)
