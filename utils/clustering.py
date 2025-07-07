@@ -26,7 +26,7 @@ def get_optics_instance(distance, min_smp, xi):
     else:
         return OPTICS(min_samples=min_smp, xi=xi, metric=distance, min_cluster_size=5)
 
-def clustering(dist, min_smp=2, xi=0.15, algo='kmeans', distance='manhattan', noise_level=0.05, num_clusters=8):
+def clustering(dist, min_smp=2, xi=0.15, algo='kmeans', distance='manhattan', noise_level=0.05, num_clusters=8, cluster_size=None):
     distrib_ = build_distribution(dist, noise_level=noise_level)
     
     if algo == 'optics':
@@ -52,11 +52,11 @@ def clustering(dist, min_smp=2, xi=0.15, algo='kmeans', distance='manhattan', no
             labels = model.fit_predict(distrib_)
     elif algo == 'bkmeans':
         if distance == 'hellinger':
-            labels, centroid = balanced_kmeans(X=distrib_, num_clusters=num_clusters, cluster_size=5, distance_func=hellinger, verbose=False)
+            labels, centroid = balanced_kmeans(X=distrib_, num_clusters=num_clusters, cluster_size=cluster_size, distance_func=hellinger, verbose=False)
         elif distance == 'jensenshannon':
-            labels, centroid = balanced_kmeans(X=distrib_, num_clusters=num_clusters, cluster_size=5, distance_func=jensen_shannon_divergence_distance, verbose=False)
+            labels, centroid = balanced_kmeans(X=distrib_, num_clusters=num_clusters, cluster_size=cluster_size, distance_func=jensen_shannon_divergence_distance, verbose=False)
         else:
-            labels, centroid = balanced_kmeans(X=distrib_, num_clusters=num_clusters, cluster_size=5, verbose=False)
+            labels, centroid = balanced_kmeans(X=distrib_, num_clusters=num_clusters, cluster_size=cluster_size, verbose=False)
 
     client_cluster_index = {i: int(lab) for i, lab in enumerate(labels)}
 
