@@ -100,55 +100,34 @@ def kmeans(X, num_clusters=4, distance_func=None, max_iter=100, tol=1e-4, verbos
     return labels, centroids
 
 def balanced_kmeans(X, num_clusters, cluster_size, distance_func=None, max_iter=100, tol=1e-4, verbose=False):
-    """
-    Balanced k-Means clustering based on the fixed-size k-Means algorithm.
-
-    Parameters:
-        X (np.ndarray): Input data, shape (n_samples, n_features)
-        num_clusters (int): Number of clusters k
-        cluster_size (int): Number of points per cluster (assumed equal for all)
-        distance_func (callable): Function to compute distance between two points
-        max_iter (int): Maximum number of iterations
-        tol (float): Tolerance to stop the iteration
-        verbose (bool): Whether to print iteration info
-
-    Returns:
-        labels (np.ndarray): Cluster assignment for each point
-        centroids (np.ndarray): Final centroid positions
-    """
     n_samples = len(X)
     X = np.array(X)
 
     if distance_func is None:
         distance_func = lambda x, y: np.linalg.norm(x - y)
 
-    # --- Khởi tạo tâm cụm ban đầu (Initial centroids C^0)
     initial_indices = random.sample(range(n_samples), num_clusters)
     centroids = X[initial_indices]
     t = 0
 
     for iteration in range(max_iter):
-        # Tính tổng cộng dồn số điểm cần trong mỗi cụm: c(j) = sum_{l=1}^j n_l  (3)
         cluster_sizes = [cluster_size] * num_clusters
         cumulative_cluster_sizes = np.cumsum(cluster_sizes)
 
-        # Gán mẫu vào cụm: solve assignment bằng Hungarian algorithm (5)
-        cost_matrix = np.zeros((n_samples, n_samples))
-        for a in range(n_samples):
-            for i in range(n_samples):
-                # W(a, i) = dist(X_i, C_{argmin_j c(j) >= a})^2
-                cluster_index = np.argmax(cumulative_cluster_sizes >= a + 1)
-                cost_matrix[a, i] = distance_func(X[i], centroids[cluster_index]) ** 2
+        # Build cost matrix with shape (n_samples, num_clusters)
+        cost_matrix = np.zeros((n_samples, num_clusters))
+        for i in range(n_samples):
+            for j in range(num_clusters):
+                a = j * cluster_size  # Approximate slot index
+                cluster_index = np.argmin(cumulative_cluster_sizes >= a + 1) if j > 0 else 0
+                cost_matrix[i, j] = distance_func(X[i], centroids[cluster_index]) ** 2
 
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
 
-        # Tạo nhãn dựa trên assignment (6)
         labels = np.zeros(n_samples, dtype=int)
-        for a, i in zip(row_ind, col_ind):
-            cluster_index = np.argmax(cumulative_cluster_sizes >= a + 1)
-            labels[i] = cluster_index
+        for i, j in zip(row_ind, col_ind):
+            labels[i] = j
 
-        # Cập nhật tâm cụm mới (2)
         new_centroids = []
         for k in range(num_clusters):
             points_in_cluster = X[labels == k]
