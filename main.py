@@ -55,7 +55,7 @@ if ALGO in ['fedhcw']:
         dist, 
         algo='bkmeans',
         num_clusters=10,
-        cluster_size=NUM_CLIENTS / 10, 
+        cluster_size=10 * [NUM_CLIENTS / 10], 
         distance=DISTANCE,
     )
 

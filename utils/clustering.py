@@ -52,11 +52,11 @@ def clustering(dist, min_smp=2, xi=0.15, algo='kmeans', distance='manhattan', no
             labels = model.fit_predict(distrib_)
     elif algo == 'bkmeans':
         if distance == 'hellinger':
-            labels, centroid = balanced_kmeans(X=distrib_, num_clusters=num_clusters, cluster_size=cluster_size, distance_func=hellinger, verbose=False)
+            labels, centroid = balanced_kmeans(X=distrib_, num_clusters=num_clusters, cluster_sizes=cluster_size, distance_func=hellinger, verbose=False)
         elif distance == 'jensenshannon':
-            labels, centroid = balanced_kmeans(X=distrib_, num_clusters=num_clusters, cluster_size=cluster_size, distance_func=jensen_shannon_divergence_distance, verbose=False)
+            labels, centroid = balanced_kmeans(X=distrib_, num_clusters=num_clusters, cluster_sizes=cluster_size, distance_func=jensen_shannon_divergence_distance, verbose=False)
         else:
-            labels, centroid = balanced_kmeans(X=distrib_, num_clusters=num_clusters, cluster_size=cluster_size, verbose=False)
+            labels, centroid = balanced_kmeans(X=distrib_, num_clusters=num_clusters, cluster_sizes=cluster_size, verbose=False)
 
     client_cluster_index = {i: int(lab) for i, lab in enumerate(labels)}
 
@@ -99,96 +99,60 @@ def kmeans(X, num_clusters=4, distance_func=None, max_iter=100, tol=1e-4, verbos
 
     return labels, centroids
 
-def balanced_kmeans(X, num_clusters, cluster_size, distance_func=None, max_iter=100, tol=1e-4, verbose=False):
-    """
-    Implement Balanced K-Means clustering with fixed cluster sizes.
+def balanced_kmeans(X, num_clusters, cluster_sizes, distance_func=None, max_iter=100, tol=1e-4, verbose=False):
+    X = np.asarray(X)
+    n_samples, _ = X.shape
 
-    Parameters:
-        X (np.ndarray): Input data, shape (n_samples, n_features)
-        num_clusters (int): Number of clusters (k)
-        cluster_size (int): Fixed number of points per cluster
-        distance_func (callable): Function to compute distance between two points (default: Euclidean)
-        max_iter (int): Maximum number of iterations
-        tol (float): Tolerance for convergence (centroid shift)
-        verbose (bool): Whether to print iteration details
+    # kiểm tra
+    assert len(cluster_sizes) == num_clusters
+    assert sum(cluster_sizes) == n_samples
 
-    Returns:
-        labels (np.ndarray): Cluster assignments for each point
-        centroids (np.ndarray): Final centroid locations
-    """
-    # Validate input
-    n_samples = len(X)
-    if cluster_size * num_clusters > n_samples:
-        raise ValueError("Total cluster size exceeds number of samples")
-    X = np.array(X, dtype=float)
-
-    # Default distance function (Euclidean distance)
     if distance_func is None:
-        distance_func = lambda x, y: np.linalg.norm(x - y)
+        distance_func = lambda u, v: np.linalg.norm(u - v)
 
-    # --- Initialization: Randomly select initial centroids (C^0)
-    initial_indices = random.sample(range(n_samples), num_clusters)
-    centroids = X[initial_indices].copy()
-    t = 0
+    init_idx = random.sample(range(n_samples), num_clusters)
+    centroids = X[init_idx].copy()
 
-    for iteration in range(max_iter):
-        # Calculate cumulative sum of cluster sizes: c(j) = sum_{l=1}^j n_l (Equation 3)
-        cluster_sizes = [cluster_size] * num_clusters
-        cumulative_cluster_sizes = np.cumsum(cluster_sizes)
+    # tính cumsum và slot→cluster mapping
+    cum_sizes = np.cumsum(cluster_sizes)
+    # slots[a] = cluster index cho slot thứ a (a từ 0..n-1)
+    slots = np.searchsorted(cum_sizes, np.arange(1, n_samples+1))
 
-        # --- Assignment step: Solve assignment using Hungarian algorithm (Equation 5)
-        # Build cost matrix with shape (n_samples, num_clusters)
-        cost_matrix = np.zeros((n_samples, num_clusters))
-        for i in range(n_samples):
-            for j in range(num_clusters):
-                # Approximate slot index a based on cluster position
-                a = j * cluster_size
-                # Find the cluster index where c(j) >= a + 1 (Equation 4)
-                cluster_index = np.argmin(cumulative_cluster_sizes >= a + 1) if j > 0 else 0
-                # W(a, i) = dist(X_i, C_{argmin_j c(j) >= a})^2
-                cost_matrix[i, j] = distance_func(X[i], centroids[cluster_index]) ** 2
+    for it in range(max_iter):
+        # vector hóa: với mỗi cluster j, ta tính dist từ X tới centroids[j]
+        # rồi gán cho tất cả a mà slots[a]==j
+        cost = np.empty((n_samples, n_samples), dtype=float)
+        for j in range(num_clusters):
+            # indices của các slot a trỏ vào cluster j
+            mask = (slots == j)
+            # tính distance từ centroid j đến mọi X
+            dists = np.array([distance_func(x, centroids[j]) for x in X])
+            # bình phương và gán vào các slot
+            cost[mask, :] = dists[None, :]**2
 
-        # Solve the assignment problem using Hungarian algorithm
-        row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        # assignment
+        row_ind, col_ind = linear_sum_assignment(cost)
 
-        # Assign labels based on the optimal assignment (Equation 6)
-        labels = np.full(n_samples, -1, dtype=int)
-        for i, j in zip(row_ind, col_ind):
-            labels[i] = j
+        # X[i] gán cluster slots[a] nếu (a,i) match
+        labels = np.empty(n_samples, dtype=int)
+        for a, i in zip(row_ind, col_ind):
+            labels[i] = slots[a]
 
-        # Ensure all points are assigned (handle any unassigned points)
-        unassigned = np.where(labels == -1)[0]
-        if len(unassigned) > 0:
-            for idx in unassigned:
-                min_dist = float('inf')
-                assign_cluster = 0
-                for j in range(num_clusters):
-                    dist = distance_func(X[idx], centroids[j])
-                    if dist < min_dist:
-                        min_dist = dist
-                        assign_cluster = j
-                labels[idx] = assign_cluster
-
-        # --- Update step: Recalculate centroids (Equation 2)
+        # update centroids
         new_centroids = np.zeros_like(centroids)
-        for k in range(num_clusters):
-            points_in_cluster = X[labels == k]
-            if len(points_in_cluster) == 0:
-                # Reinitialize empty cluster with a random point
-                new_centroids[k] = X[random.randint(0, n_samples - 1)]
+        for j in range(num_clusters):
+            pts = X[labels == j]
+            if len(pts) == 0:
+                new_centroids[j] = X[random.randrange(n_samples)]
             else:
-                new_centroids[k] = np.mean(points_in_cluster, axis=0)
+                new_centroids[j] = pts.mean(axis=0)
 
-        # Calculate centroid shift for convergence check
-        shift = np.sum([distance_func(c, nc) for c, nc in zip(centroids, new_centroids)])
+        # check hội tụ
+        shift = sum(distance_func(c0, c1) for c0, c1 in zip(centroids, new_centroids))
         if verbose:
-            print(f"[Iter {iteration}] centroid shift: {shift:.6f}")
-
-        # Check convergence
+            print(f"[FixedKMeans] it={it+1}, shift={shift:.6f}")
+        centroids = new_centroids
         if shift < tol:
             break
-
-        centroids = new_centroids.copy()
-        t += 1
 
     return labels, centroids
