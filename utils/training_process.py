@@ -19,7 +19,7 @@ def get_model(dataset_name, moon_type=False):
     elif dataset_name == 'cifar10': 
         model = ResNet18()
     elif dataset_name == 'agnews': 
-        model = LSTM() 
+        model = CNN_Text() 
     elif dataset_name == 'fmnist':
         model = MLP()
     return model

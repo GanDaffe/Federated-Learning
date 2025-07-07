@@ -6,20 +6,15 @@ from collections import Counter
 from torch.distributions.dirichlet import Dirichlet
 from torchvision.datasets import CIFAR10, CIFAR100, EMNIST, FashionMNIST
 import torchvision.transforms as transforms
-import torch.nn as nn
-from sklearn.cluster import OPTICS
 from models import CustomDataset
 from tqdm import tqdm 
 import string
-from sklearn.model_selection import train_test_split
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from torch.utils.data import DataLoader, random_split, SubsetRandomSampler
-from utils.distance import hellinger, jensen_shannon_divergence_distance
 from datasets import load_dataset 
 import re
-from sklearn.cluster import AgglomerativeClustering
-from sklearn.metrics import pairwise_distances
+
 
 # ------------------------------ Preprocess ----------------------------------------
 def clean_text(tweet):
@@ -234,6 +229,9 @@ def get_train_data(dataset_name,
         if dataset_name in ['cifar10', 'cifar100','agnews']:
             data = [trainset.data[idx] for idx in sub_set.indices]
             targets = [trainset.targets[idx] for idx in sub_set.indices]
+        elif dataset_name == 'agnews':
+            data = [trainset[idx][0] for idx in sub_set.indices]
+            targets = [trainset[idx][1] for idx in sub_set.indices]
         else:
             data = trainset.data[sub_set.indices]
             targets = trainset.targets[sub_set.indices].tolist()
@@ -287,87 +285,3 @@ def renormalize(dist: torch.tensor, labels: List[int], label: int):
     dist = torch.concat((dist[:idx], dist[idx+1:]))
     return dist
 
-def build_distribution(dist, noise_level=0.05):
-    distrib_ = [
-        np.array(list(d.values())) / sum(d.values()) if sum(d.values()) > 0 else np.zeros(len(d))
-        for d in dist
-    ]
-    distrib_ = np.array(distrib_)
-    noise = np.random.lognormal(mean=0.0, sigma=noise_level, size=distrib_.shape)
-    distrib_ += noise
-    distrib_ = distrib_ / distrib_.sum(axis=1, keepdims=True)
-    return distrib_
-
-def get_optics_instance(distance, min_smp, xi):
-    if distance == 'hellinger':
-        return OPTICS(min_samples=min_smp, xi=xi, metric=hellinger, min_cluster_size=5)
-    elif distance == 'jensenshannon':
-        return OPTICS(min_samples=min_smp, xi=xi, metric=jensen_shannon_divergence_distance, min_cluster_size=5)
-    else:
-        return OPTICS(min_samples=min_smp, xi=xi, metric=distance, min_cluster_size=5)
-
-def clustering(dist, min_smp=2, xi=0.15, algo='kmeans', distance='manhattan', noise_level=0.05, num_clusters=8):
-    distrib_ = build_distribution(dist, noise_level=noise_level)
-    
-    if algo == 'optics':
-        optics = get_optics_instance(distance, min_smp, xi)
-        optics.fit(distrib_)
-        labels = optics.labels_
-    elif algo == 'kmeans': 
-        if distance == 'hellinger':
-            labels, centroid = kmeans(X=distrib_, num_clusters=num_clusters, distance_func=hellinger, verbose=False) 
-        elif distance == 'jensenshannon':
-            labels, centroid = kmeans(X=distrib_, num_clusters=num_clusters, distance_func=jensen_shannon_divergence_distance, verbose=False)
-    elif algo == 'agglomerative':
-        if distance == 'hellinger':
-            dists = pairwise_distances(distrib_, metric=hellinger)
-            model = AgglomerativeClustering(n_clusters=num_clusters, affinity='precomputed', linkage='average')
-            labels = model.fit_predict(dists)
-        elif distance == 'jensenshannon':
-            dists = pairwise_distances(distrib_, metric=jensen_shannon_divergence_distance)
-            model = AgglomerativeClustering(n_clusters=num_clusters, affinity='precomputed', linkage='average')
-            labels = model.fit_predict(dists)
-        else:
-            model = AgglomerativeClustering(n_clusters=num_clusters, affinity=distance, linkage='average')
-            labels = model.fit_predict(distrib_)
-
-    client_cluster_index = {i: int(lab) for i, lab in enumerate(labels)}
-
-    return client_cluster_index, distrib_
-
-def kmeans(X, num_clusters=4, distance_func=None, max_iter=100, tol=1e-4, verbose=False):
-    n_samples = len(X)
-    X = np.array(X)
-
-    if distance_func is None:
-        distance_func = lambda x, y: np.linalg.norm(x - y)
-
-    random_indices = random.sample(range(n_samples), num_clusters)
-    centroids = X[random_indices]
-
-    for iteration in range(max_iter):
-        labels = []
-        for x in X:
-            distances = [distance_func(x, centroid) for centroid in centroids]
-            label = np.argmin(distances)
-            labels.append(label)
-        labels = np.array(labels)
-
-        new_centroids = []
-        for k in range(num_clusters):
-            cluster_points = X[labels == k]
-            if len(cluster_points) == 0:
-                new_centroids.append(X[random.randint(0, n_samples - 1)])
-            else:
-                new_centroids.append(np.mean(cluster_points, axis=0))
-        new_centroids = np.array(new_centroids)
-
-        shift = sum(distance_func(c, nc) for c, nc in zip(centroids, new_centroids))
-        if verbose:
-            print(f"Iteration {iteration + 1}: total centroid shift = {shift:.6f}")
-        if shift < tol:
-            break
-
-        centroids = new_centroids
-
-    return labels, centroids

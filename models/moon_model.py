@@ -22,9 +22,11 @@ class MoonTypeModel(nn.Module):
             num_ftrs = model.resnet.fc.in_features
 
         elif dataset_name == 'agnews': 
-            self.use_lstm = True
-            self.features = LSTM_Header()
-            num_ftrs = 256
+            # self.use_lstm = True
+            # self.features = LSTM_Header()
+            self.features = CNN_Text_Header()
+
+            num_ftrs = 96
 
         if dataset_name in ['fmnist', 'cifar10']:
             n_classes = 10

@@ -2,8 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+#https://arxiv.org/pdf/1408.5882
 class CNN_Text_Header(nn.Module):
-    def __init__(self, embed_num, embed_dim, kernel_sizes, class_num, kernel_num, dropout):
+    def __init__(self, embed_num=2000, embed_dim=8, kernel_sizes=[3, 4, 5], class_num=4, kernel_num=32, dropout=0.5):
         super(CNN_Text_Header, self).__init__()
 
         V = embed_num      
@@ -34,7 +35,7 @@ class CNN_Text_Header(nn.Module):
         return x
 
 class CNN_Text(nn.Module): 
-    def __init__(self, embed_num=2000, embed_dim=32, kernel_sizes=[3, 4, 5], class_num=4, kernel_num=32, dropout=0.5): 
+    def __init__(self, embed_num=2000, embed_dim=8, kernel_sizes=[3, 4, 5], class_num=4, kernel_num=32, dropout=0.5): 
         super(CNN_Text, self).__init__()
         self.encode = CNN_Text_Header(embed_num, embed_dim, kernel_sizes, class_num, kernel_num, dropout)
         self.classification = nn.Linear(len(kernel_sizes) * kernel_num, class_num)
