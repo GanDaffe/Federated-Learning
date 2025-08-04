@@ -164,29 +164,36 @@ def partition_data(dataset,
 
     return ids, label_dist
 
-def partition_data_special_case(trainset, num_clients: int, num_iids: int):
-    classes = trainset.classes
-    client_size = int(len(trainset)/num_clients)
-    label_size = int(len(trainset)/len(classes))
-    data = list(map(lambda x: (trainset[x][1], x), range(len(trainset))))
-    data.sort()
-    data = list(map(lambda x: data[x][1], range(len(data))))
-    
-    grouped_data = [data[i*label_size:(i+1)*label_size] for i in range(len(classes))]
-    non_iid_labels = random.sample(range(len(classes)), 2) if len(classes) == 10 else list(range(10))
-    non_iid_data = []
-    for label in non_iid_labels:
-        non_iid_data += grouped_data[label]
+def partition_data_sharding(dataset, num_clients, num_shards, classes_name):
+    """
+    Dữ liệu được chia ngẫu nhiên theo class, sau đó chia thành shard nhỏ, mỗi client nhận num_shards shard
+    """
+    num_classes = len(classes_name)
+    label_size = len(dataset) // num_classes
 
-    ids = []
+    indices_class = [[] for _ in range(num_classes)]
+    for i, lab in enumerate(dataset.targets):
+        indices_class[lab].append(i)
+
+    all_indices = []
+    for label_indices in indices_class:
+        random.shuffle(label_indices)
+        all_indices.extend(label_indices)
+
+    total_shards = num_shards * num_clients
+    shard_size = len(all_indices) // total_shards
+    shards = [all_indices[i * shard_size:(i + 1) * shard_size] for i in range(total_shards)]
+    random.shuffle(shards)
+
+    ids = [[] for _ in range(num_clients)]
     label_dist = []
+
     for i in range(num_clients):
-        temp_data = data if i < num_iids else non_iid_data
-        id = random.sample(temp_data, client_size)
-        ids.append(id)
-        
-        counter = Counter(list(map(lambda x: trainset[x][1], ids[i])))
-        label_dist.append({classes[i]: counter.get(i, 0) for i in range(len(classes))})
+        for j in range(num_shards):
+            idx = i * num_shards + j
+            ids[i].extend(shards[idx])
+        counter = Counter([dataset[x][1] for x in ids[i]])
+        label_dist.append({cls: counter.get(cls, 0) for cls in range(num_classes)})
 
     return ids, label_dist
 
@@ -196,22 +203,27 @@ def get_train_data(dataset_name,
                    batch_size, 
                    alphas: list = [0.5, 0.7, 0.9, 1],
                    fractions: list = [0.25, 0.25, 0.25, 0.25],
-                   special_case=False):
+                   sharding: bool = False,
+                   shards: list = None):
 
-    assert abs(sum(fractions) - 1.0) < 1e-6, "Tổng các phần tử trong 'fractions' phải bằng 1"
+    assert abs(sum(fractions) - 1.0) < 1e-6, "Tổng 'fractions' phải bằng 1"
     assert len(alphas) == len(fractions), "'alphas' và 'fractions' phải có cùng độ dài"
+    if sharding:
+        assert shards is not None, "Cần cung cấp 'shards' khi sharding=True"
+        assert len(shards) == len(fractions), "'shards' phải có cùng độ dài với 'fractions'"
 
     trainset, testset = load_data(dataset_name)
     classes = trainset.classes
 
+    # Tính số client/fold
     clients_per_fold = [int(frac * num_clients) for frac in fractions]
-    
     while sum(clients_per_fold) < num_clients:
         for i in range(len(clients_per_fold)):
             clients_per_fold[i] += 1
             if sum(clients_per_fold) == num_clients:
                 break
 
+    # Tính số lượng dữ liệu mỗi fold
     total_data = len(trainset)
     data_per_fold = [int((num / num_clients) * total_data) for num in clients_per_fold]
     while sum(data_per_fold) < total_data:
@@ -224,42 +236,36 @@ def get_train_data(dataset_name,
 
     ids, labels_dist = [], []
 
-    for i in range(len(alphas)):
+    for i in range(len(fractions)):
         sub_set = partition_fold[i]
-        if dataset_name in ['cifar10', 'cifar100','agnews']:
+
+        if dataset_name in ['cifar10', 'cifar100', 'agnews']:
             data = [trainset.data[idx] for idx in sub_set.indices]
             targets = [trainset.targets[idx] for idx in sub_set.indices]
-        elif dataset_name == 'agnews':
-            data = [trainset[idx][0] for idx in sub_set.indices]
-            targets = [trainset[idx][1] for idx in sub_set.indices]
         else:
             data = trainset.data[sub_set.indices]
             targets = trainset.targets[sub_set.indices].tolist()
 
         sub_dataset = CustomDataset(data, targets)
 
-        if special_case:
-            id, dist = partition_data_special_case(sub_dataset, clients_per_fold[i])
+        if sharding and shards[i] > 0:
+            id, dist = partition_data_sharding(sub_dataset, clients_per_fold[i], shards[i], classes)
         else:
-            id, dist = partition_data(
-                sub_dataset,
-                clients_per_fold[i],
-                alphas[i],
-                classes,
-            )
+            id, dist = partition_data(sub_dataset, clients_per_fold[i], alphas[i], classes)
 
         ids.extend(id)
         labels_dist.extend(dist)
 
-    trainloaders = []
-
-    for i in range(num_clients):
-        trainloaders.append(DataLoader(trainset, batch_size=batch_size, sampler=SubsetRandomSampler(ids[i])))
+    trainloaders = [
+        DataLoader(trainset, batch_size=batch_size, sampler=SubsetRandomSampler(ids[i]))
+        for i in range(num_clients)
+    ]
     testloader = DataLoader(testset, batch_size=batch_size)
-    
+
     client_dataset_ratio: float = int(len(trainset) / num_clients) / len(trainset)
-    
+
     return ids, labels_dist, trainloaders, testloader, client_dataset_ratio
+
 
 # ------------------------------------------ Support function --------------------------------------- 
 def set_seed(seed_value):
