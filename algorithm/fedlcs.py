@@ -21,7 +21,7 @@ class FedCLS(FedAvg):
 
         examples = [fit_res.num_examples for _, fit_res in results]
         weights_results = [(parameters_to_ndarrays(fit_res.parameters),
-                            fit_res.num_examples * (1 - self.alpha) + (sum(examples) * self.alpha * fit_res.metrics["num_classes"] / self.all_classes))
+                            fit_res.num_examples * (1 - self.alpha) + (self.alpha * fit_res.metrics["num_classes"] / self.all_classes))
                             for _, fit_res in results]
 
         self.current_parameters = ndarrays_to_parameters(aggregate(weights_results))
