@@ -85,7 +85,10 @@ if ALGO == 'feddisco':
 
 if ALGO == 'fedcls': 
     num_classes = len(dist[0])
-    class_per_client = [num_classes - int(sum(dist[i] == 0)) for i in range(NUM_CLIENTS)] 
+    class_per_client = [
+        sum(count > 0 for _, count in dist[i].items())
+        for i in range(NUM_CLIENTS)
+    ]
 
 entropies = [compute_entropy(dist[i]) for i in range(NUM_CLIENTS)]
     
