@@ -82,7 +82,11 @@ if ALGO == 'feddisco':
     for client_id in range(NUM_CLIENTS):
         client_distribution = normalize_distribution(dist[client_id])
         dk[client_id] = kl_divergence(client_distribution, uniform_dist)
-        
+
+if ALGO == 'fedcls': 
+    num_classes = len(dist[0])
+    class_per_client = [num_classes - int(sum(dist[i] == 0)) for i in range(NUM_CLIENTS)] 
+
 entropies = [compute_entropy(dist[i]) for i in range(NUM_CLIENTS)]
     
 # ---------------------------- CLIENT_FN -------------------------------------
@@ -107,6 +111,8 @@ def client_fn(context: Context):
         return FedDC_client(cid, net, LOCAL_TRAINING, trainloaders[cid], criterion, DEVICE).to_client()
     elif ALGO == 'fedntd':
         return FedNTD_Client(cid, net, LOCAL_TRAINING, trainloaders[cid], None, DEVICE).to_client()
+    elif ALGO == 'fedcls':
+        return FedCLS_Client(cid, net, LOCAL_TRAINING, trainloaders[cid], criterion, DEVICE, num_classes=class_per_client[cid]).to_client()
 # ---------------------------- STRATEGY ----------------------------------------
 
 is_moon_type = True if ALGO == 'moon' else False 
@@ -136,6 +142,8 @@ def get_algorithm():
         return FedDC
     elif ALGO == 'fedntd':
         return FedNTD
+    elif ALGO == 'fedcls':
+        return FedCLS
     
 def get_strategy(): 
     algo = get_algorithm() 
@@ -172,7 +180,17 @@ def get_strategy():
             current_parameters  = current_parameters,
             dk                  = dk,
         )
-
+    elif ALGO == 'fedcls':
+        return algo(
+            exp_name            = EXP_NAME,
+            net                 = net_,
+            num_rounds          = NUM_ROUNDS,
+            num_clients         = NUM_CLIENTS,
+            testloader          = testloader,
+            learning_rate       = LR,
+            current_parameters  = current_parameters,
+            all_classes         = len(dist[0]),
+        )
 # ---------------------------- RUN SIMULATION -------------------------------------
 
 client_resources = {"num_cpus": 2, "num_gpus": 0.2} if DEVICE == "cuda" else {"num_cpus": 1, "num_gpus": 0.0}

@@ -9,3 +9,4 @@ from algorithm.fedaaw import FedAAW
 from algorithm.feddisco import FedDisco
 from algorithm.feddc import FedDC
 from algorithm.fedntd import FedNTD
+from algorithm.fedlcs import FedCLS

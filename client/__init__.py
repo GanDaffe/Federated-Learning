@@ -6,3 +6,4 @@ from client.fedaaw_client import FedAAW_Client
 from client.feddc_client import FedDC_client
 from client.client_manager import SimpleClientManager
 from client.fedntd_client import FedNTD_Client
+from client.fedcls_client import FedCLS_Client
