@@ -23,7 +23,7 @@ class FedDisco(FedAvg):
         pk, cummulate = {}, 0 
         for _, fit_res in results: 
             cid = fit_res.metrics['id']
-            value = F.relu(torch.tensor(fit_res.num_examples - self.alpha * self.dk[cid] - self.beta))
+            value = F.relu(torch.tensor(fit_res.num_examples - self.alpha * self.dk[cid] + self.beta))
             pk[cid] = np.array(value)
             cummulate += pk[cid] 
         
